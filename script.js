@@ -8,6 +8,7 @@ const highScoreMsg = document.getElementById("highScoreMsg");
 const highScoreValue = document.getElementById("highScoreValue");
 const startOverlay = document.getElementById("startOverlay");
 const playAgainBtn = document.getElementById("playAgainBtn");
+const touchSlider = document.getElementById("touchSlider");
 
 let basketX = gameArea.clientWidth / 2 - 40;
 let score = 0;
@@ -33,6 +34,8 @@ let wallElement = null;
 
 let highScore = localStorage.getItem("highScore") || 0;
 
+let usingSlider = false; // NEW: for tracking slider usage
+
 // Controls
 document.getElementById("pauseBtn").addEventListener("click", () => {
   paused = !paused;
@@ -45,21 +48,6 @@ playAgainBtn.addEventListener("click", () => {
   window.location.reload();
 });
 
-// Touch control
-gameArea.addEventListener("touchstart", (e) => {
-  const touchX = e.touches[0].clientX;
-  const gameRect = gameArea.getBoundingClientRect();
-  if (touchX < gameRect.left + gameRect.width / 2) {
-    movingLeft = true;
-  } else {
-    movingRight = true;
-  }
-});
-gameArea.addEventListener("touchend", () => {
-  movingLeft = false;
-  movingRight = false;
-});
-
 // Keyboard control
 document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") movingLeft = true;
@@ -70,6 +58,20 @@ document.addEventListener("keyup", (e) => {
   if (e.key === "ArrowRight") movingRight = false;
 });
 
+// Slider control
+if (touchSlider) {
+  touchSlider.addEventListener("input", () => {
+    usingSlider = true;
+    const percent = parseInt(touchSlider.value);
+    const maxX = gameArea.clientWidth - 50;
+    basketX = (percent / 100) * maxX;
+  });
+
+  touchSlider.addEventListener("change", () => {
+    usingSlider = false;
+  });
+}
+
 // Basket movement
 function moveBasket() {
   if (!gameRunning || paused) {
@@ -77,8 +79,11 @@ function moveBasket() {
     return;
   }
 
-  if (movingLeft && basketX > 0) basketX -= 5;
-  if (movingRight && basketX < gameArea.clientWidth - 50) basketX += 5;
+  // Keyboard movement if slider not active
+  if (!usingSlider) {
+    if (movingLeft && basketX > 0) basketX -= 5;
+    if (movingRight && basketX < gameArea.clientWidth - 50) basketX += 5;
+  }
 
   basket.style.left = basketX + "px";
   requestAnimationFrame(moveBasket);
@@ -157,10 +162,19 @@ function dropObject() {
 
   let type = "ball";
   const rand = Math.random();
+
+  // Drop type logic
   if (rand < 0.04) type = "heart";
   else if (rand < 0.08) type = "clock";
-  else if (fallSpeed >= 8 && rand < 0.25) type = "bomb";
+  else {
+    let bombChance = 0;
+    if (fallSpeed >= 6) bombChance = 0.15;
+    if (fallSpeed >= 8) bombChance = 0.25;
+    if (fallSpeed >= 10) bombChance = 0.35;
+    if (rand < bombChance) type = "bomb";
+  }
 
+  // Set emoji
   switch (type) {
     case "heart": obj.innerText = "❤️"; break;
     case "clock": obj.innerText = "⏰"; break;
@@ -185,7 +199,7 @@ function dropObject() {
     ballY += fallSpeed;
     obj.style.top = ballY + "px";
 
-    // Wind push
+    // Wind
     if (windActive && !obj.dataset.bounce) {
       let x = parseFloat(obj.style.left);
       if (windDirection === "left") {
@@ -212,7 +226,7 @@ function dropObject() {
       }
     }
 
-    // Bounce movement
+    // Bounce direction
     let direction = obj.dataset.bounce;
     if (direction === "left") {
       let x = parseFloat(obj.style.left);
@@ -274,7 +288,7 @@ function dropObject() {
   }
 }
 
-// Wall generator
+// Wall
 function spawnBrickWall() {
   if (wallActive) return;
 
