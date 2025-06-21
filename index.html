@@ -8,29 +8,31 @@
 </head>
 <body>
   <h1>🏀 Catch the Basketball!</h1>
-  
+
   <div id="infoBar">
     <div>⏱ Time: <span id="timer">0</span>s</div>
     <div>❤️ Lives: <span id="lives">5</span></div>
     <div>🏆 Score: <span id="score">0</span></div>
   </div>
-	<div id="controls">
-  <button id="pauseBtn">⏸️ Pause</button>
-  <button id="restartBtn">🔁 Restart</button>
 
-</div>
-	<div id="deathAlert">⚠️ SUDDEN DEATH INCOMING!</div>
+  <div id="controls">
+    <button id="pauseBtn">⏸️ Pause</button>
+    <button id="restartBtn">🔁 Restart</button>
+  </div>
 
+  <div id="deathAlert">⚠️ SUDDEN DEATH INCOMING!</div>
 
   <div id="gameArea">
     <div id="basket">🧺</div>
     <div id="gameOver">🎬 GAME OVER 🎬</div>
     <div id="highScoreMsg">🎉 New High Score: <span id="highScoreValue">0</span></div>
     <div id="startOverlay">Ready...</div>
-	<button id="playAgainBtn" style="display: none;">▶️ Play Again</button>
+    <button id="playAgainBtn" style="display: none;">▶️ Play Again</button>
+  </div>
 
-
-
+  <!-- ✅ SLIDER CONTROL -->
+  <div id="touchSliderContainer">
+    <input type="range" id="touchSlider" min="0" max="100" value="50">
   </div>
 
   <script src="script.js"></script>
