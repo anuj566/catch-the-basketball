@@ -19,34 +19,27 @@ let fallSpeed = 3;
 let gameRunning = false;
 let movingLeft = false;
 let movingRight = false;
-let ballFalling = false;
 let slowed = false;
 let paused = false;
 let allIntervals = [];
 
 let windDirection = "none";
 let windActive = false;
-
 let suddenDeath = false;
 let savedLives = lives;
 let wallActive = false;
 let wallElement = null;
 
 let highScore = localStorage.getItem("highScore") || 0;
-
-let usingSlider = false; // NEW: for tracking slider usage
+let usingSlider = false;
 
 // Controls
 document.getElementById("pauseBtn").addEventListener("click", () => {
   paused = !paused;
   document.getElementById("pauseBtn").innerText = paused ? "▶️ Resume" : "⏸️ Pause";
 });
-document.getElementById("restartBtn").addEventListener("click", () => {
-  window.location.reload();
-});
-playAgainBtn.addEventListener("click", () => {
-  window.location.reload();
-});
+document.getElementById("restartBtn").addEventListener("click", () => window.location.reload());
+playAgainBtn.addEventListener("click", () => window.location.reload());
 
 // Keyboard control
 document.addEventListener("keydown", (e) => {
@@ -66,10 +59,7 @@ if (touchSlider) {
     const maxX = gameArea.clientWidth - 50;
     basketX = (percent / 100) * maxX;
   });
-
-  touchSlider.addEventListener("change", () => {
-    usingSlider = false;
-  });
+  touchSlider.addEventListener("change", () => usingSlider = false);
 }
 
 // Basket movement
@@ -79,7 +69,6 @@ function moveBasket() {
     return;
   }
 
-  // Keyboard movement if slider not active
   if (!usingSlider) {
     if (movingLeft && basketX > 0) basketX -= 5;
     if (movingRight && basketX < gameArea.clientWidth - 50) basketX += 5;
@@ -90,7 +79,7 @@ function moveBasket() {
 }
 moveBasket();
 
-// Start message
+// Start screen
 function showStartOverlay() {
   startOverlay.style.display = "block";
   startOverlay.innerText = "Ready...";
@@ -107,22 +96,44 @@ function showStartOverlay() {
 }
 showStartOverlay();
 
-// Timers
+// Timer & level progression
 allIntervals.push(setInterval(() => {
   if (!gameRunning || paused) return;
   time++;
   timerDisplay.innerText = time;
-  if (time % 8 === 0 && fallSpeed < 12) {
+
+  if (time % 8 === 0 && fallSpeed < 25) {
     level++;
-    fallSpeed += 0.5;
+    if (level <= 10) fallSpeed += 0.5;
+    else if (level <= 15) fallSpeed += 1;
+    else fallSpeed += 1.5;
   }
 }, 1000));
 
+// Natural multi-ball drop with delays and spacing
 allIntervals.push(setInterval(() => {
   if (!gameRunning || paused) return;
-  if (fallSpeed >= 10 && ballFalling) return;
-  dropObject();
-}, 1000));
+
+  let ballsToDrop = 1;
+  if (level >= 5 && level < 10) ballsToDrop = 2;
+  else if (level >= 10 && level < 15) ballsToDrop = 3;
+  else if (level >= 15 && level < 20) ballsToDrop = 2;
+  else if (level >= 20) ballsToDrop = 1;
+
+  const usedX = [];
+
+  for (let i = 0; i < ballsToDrop; i++) {
+    setTimeout(() => {
+      let maxX = gameArea.clientWidth - 40;
+      let x;
+      do {
+        x = 5 + Math.random() * (maxX - 10); // avoid edges
+      } while (usedX.some(pos => Math.abs(pos - x) < 45));
+      usedX.push(x);
+      dropObject(x);
+    }, i * (200 + Math.random() * 300));
+  }
+}, 1300));
 
 // Wind system
 setInterval(() => {
@@ -132,7 +143,7 @@ setInterval(() => {
   windActive = windDirection !== "none";
 }, 12000);
 
-// Sudden Death system
+// Sudden Death
 setInterval(() => {
   if (!gameRunning || paused || level < 10 || suddenDeath) return;
 
@@ -155,15 +166,13 @@ setInterval(() => {
 }, 25000);
 
 // Drop object
-function dropObject() {
-  ballFalling = true;
+function dropObject(posX = null) {
   const obj = document.createElement("div");
   obj.classList.add("ball");
 
   let type = "ball";
   const rand = Math.random();
 
-  // Drop type logic
   if (rand < 0.04) type = "heart";
   else if (rand < 0.08) type = "clock";
   else {
@@ -174,21 +183,15 @@ function dropObject() {
     if (rand < bombChance) type = "bomb";
   }
 
-  // Set emoji
-  switch (type) {
-    case "heart": obj.innerText = "❤️"; break;
-    case "clock": obj.innerText = "⏰"; break;
-    case "bomb": obj.innerText = "💣"; break;
-    default: obj.innerText = "🏀";
-  }
-
+  obj.innerText = type === "heart" ? "❤️" : type === "clock" ? "⏰" : type === "bomb" ? "💣" : "🏀";
   obj.setAttribute("data-type", type);
   obj.dataset.bounce = "none";
-  obj.style.left = Math.random() * (gameArea.clientWidth - 40) + "px";
+
+  const maxX = gameArea.clientWidth - 40;
+  obj.style.left = `${Math.max(5, Math.min(posX || Math.random() * maxX, maxX))}px`;
   gameArea.appendChild(obj);
 
   let ballY = 0;
-
   const fall = setInterval(() => {
     if (!gameRunning || paused) {
       clearInterval(fall);
@@ -199,14 +202,11 @@ function dropObject() {
     ballY += fallSpeed;
     obj.style.top = ballY + "px";
 
-    // Wind
+    // Wind effect
     if (windActive && !obj.dataset.bounce) {
       let x = parseFloat(obj.style.left);
-      if (windDirection === "left") {
-        obj.style.left = Math.max(0, x - 1.5) + "px";
-      } else if (windDirection === "right") {
-        obj.style.left = Math.min(gameArea.clientWidth - 40, x + 1.5) + "px";
-      }
+      if (windDirection === "left") obj.style.left = Math.max(0, x - 1.5) + "px";
+      else if (windDirection === "right") obj.style.left = Math.min(maxX, x + 1.5) + "px";
     }
 
     // Wall bounce
@@ -226,17 +226,12 @@ function dropObject() {
       }
     }
 
-    // Bounce direction
-    let direction = obj.dataset.bounce;
-    if (direction === "left") {
-      let x = parseFloat(obj.style.left);
-      obj.style.left = Math.max(0, x - 2) + "px";
-    } else if (direction === "right") {
-      let x = parseFloat(obj.style.left);
-      obj.style.left = Math.min(gameArea.clientWidth - 40, x + 2) + "px";
-    }
+    // Apply bounce direction
+    let dir = obj.dataset.bounce;
+    if (dir === "left") obj.style.left = Math.max(0, parseFloat(obj.style.left) - 2) + "px";
+    if (dir === "right") obj.style.left = Math.min(maxX, parseFloat(obj.style.left) + 2) + "px";
 
-    // Basket collision
+    // Collision with basket
     const basketRect = basket.getBoundingClientRect();
     const objRect = obj.getBoundingClientRect();
     const ballCenter = objRect.left + objRect.width / 2;
@@ -247,13 +242,9 @@ function dropObject() {
       ballCenter <= basketRect.right
     ) {
       const type = obj.getAttribute("data-type");
-      if (type === "ball") {
-        score++;
-        scoreDisplay.innerText = score;
-      } else if (type === "heart" && lives < 5) {
-        lives++;
-        livesDisplay.innerText = lives;
-      } else if (type === "clock" && !slowed) {
+      if (type === "ball") score++;
+      else if (type === "heart" && lives < 5) lives++;
+      else if (type === "clock" && !slowed) {
         slowed = true;
         const originalSpeed = fallSpeed;
         fallSpeed = Math.max(2, fallSpeed - 2);
@@ -264,12 +255,13 @@ function dropObject() {
       } else if (type === "bomb") {
         lives -= 2;
         lives = Math.max(0, lives);
-        livesDisplay.innerText = lives;
       }
 
+      scoreDisplay.innerText = score;
+      livesDisplay.innerText = lives;
       obj.remove();
       clearInterval(fall);
-      ballFalling = false;
+
       if (lives <= 0) endGame();
     } else if (ballY > gameArea.clientHeight - 10) {
       if (type === "ball") {
@@ -279,16 +271,13 @@ function dropObject() {
       }
       obj.remove();
       clearInterval(fall);
-      ballFalling = false;
     }
   }, 20);
 
-  if (Math.random() < 0.1 && level >= 5) {
-    spawnBrickWall();
-  }
+  if (Math.random() < 0.1 && level >= 5) spawnBrickWall();
 }
 
-// Wall
+// Brick Wall
 function spawnBrickWall() {
   if (wallActive) return;
 
@@ -307,7 +296,7 @@ function spawnBrickWall() {
   }, 7000);
 }
 
-// Game over
+// Game Over
 function endGame() {
   gameRunning = false;
   gameOverText.style.display = "block";
